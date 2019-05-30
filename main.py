@@ -9,7 +9,6 @@ def get_seller(url):
 
 
 def search(item):
-    user_data = {}
     r = requests.get(get_search_url(item))
     tree = html.fromstring(r.content)
 
@@ -26,25 +25,23 @@ def search(item):
         threads.append(process)
     for process in threads:
         process.join()
-    for result in result_data:
-        print(result)
-    print(len(result_data))
+    print(result_data)
+    return result_data
 
 
-    return user_data
+def parse_results(results_data):
+    data = {}
+    for result in results_data:
 
-#TODO: remove duplicates, rewrite!
-def join_results(result_one, result_two):
-    for key in result_two:
-        if key in result_one:
-            for search_id in result_two[key]:
-                if search_id in result_one[key]:
-                    result_one[key][search_id] += result_one[key][search_id]
-                else:
-                    result_one[key][search_id] = result_two[key][search_id]
-        else:
-            result_one[key] = result_two[key]
-
+        if result["seller"] not in data:
+            data[result["seller"]] = {}
+        if result["search"] not in data[result["seller"]]:
+            data[result["seller"]][result["search"]] = []
+        data[result["seller"]][result["search"]].append({
+            "title": result["title"],
+            "link": result["link"],
+            "image": result["image"]})
+    return data
 
 def fetch_page(item, result_data, page):
     r = requests.get(get_search_url(item, page))
@@ -56,11 +53,11 @@ def fetch_page(item, result_data, page):
             link = a_el[1].get('href')
             image = a_el[0].xpath('.//img')[0].get('src')
             price = el.xpath('.//div[1]/div[1]/div[2]/div[2]/div[1]') #TODO price
-            print(price)
+            #print(price)
             if image is None:
                 continue
             seller = get_seller(link)
-            result_data.append(get_item_dict(seller, title, price, link, image))
+            result_data.append(get_item_dict(item, seller, title, price, link, image))
 
 
 def get_result_count(tree):
@@ -71,8 +68,9 @@ def get_max_pages(tree):
     return tree.xpath('//input[@data-maxpage]')[0].get('data-maxpage')
 
 
-def get_item_dict(seller, title, price, link, image):
+def get_item_dict(search, seller, title, price, link, image):
     return {
+        "search": search,
         "seller": seller,
         "title": title,
         "price": price,
@@ -96,7 +94,20 @@ def get_seller_search_url(seller, item):
 def replace_url_spaces(url):
     return url.replace(" ", "%20")
 
-search("klamka kanapy")
+
+s1 = search("klamka kanapy")
+s2 = search("zestaw naprawczy bagaznika")
+s1.extend(s2)
+
+res = parse_results(s1)
+
+out = dict(res)
+
+for s in res:
+    if len(res[s]) < 2:
+        out.pop(s)
+
+print(out)
 
 #fetch_page("klamka kanapy", result, 3)
 
